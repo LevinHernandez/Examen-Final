@@ -1,0 +1,100 @@
+Universidad Mariano Gálvez Sede San José Pinula 
+Ingeniería en Sistemas de Información
+Cátedra: Sistemas Operativos II
+Catedrático: Ing. Saimon Manuel Méndez 
+Sección: A 
+
+
+CONFIGURACIÓN DEL REPOSITORIO PRIVADO 
+
+ 	REPOSITORIO PRIVADO
+
+-	Paso 1 
+Creamos el repositorio privado en Docker Hub : umgsoii2020/node-health
+
+ 
+
+-	Paso 2 
+Cargamos una imagen al repositorio privado
+ 
+
+
+
+ 	DESCARGA DE LA IMAGEN DEL REPOSITORIO PRIVADO: 
+Lo que realizamos fue acceder a nuestro respositorio privado desde el cluster de kubernetes, para lo cual creamos el Secret, que contiene la llave que nos brinda acceso directo al repositorio privado y así poder descargar la imagen. 
+- Paso 1 
+Iniciamos sesión en Docker
+Nos autenticamos con el usuario y contraseña de Docker para obtener una imagen privada:
+docker login
+
+-	Paso 2
+El proceso de inicio de sesión creó un config.json archivo que contiene un token de autorización.
+Para ver el config.json archivo:
+cat ~/.docker/config.json
+La salida contiene una sección similar a esta:
+{
+    "auths": {
+        "https://index.docker.io/v1/": {
+            "auth": "c3R...zE2"
+        }
+    }
+}
+-	Paso 3
+Creamos un secret basado en las credenciales existentes de docker: 
+Un clúster de Kubernetes usa el docker-registry tipo secret para autenticarse con un registro de contenedor para extraer una imagen privada.
+
+Una vez ejecutamos el docker login, puede copiar esa credencial en Kubernetes:
+kubectl create secret generic regcred \
+    --from-file=.dockerconfigjson=<path/to/.docker/config.json> \
+    --type=kubernetes.io/dockerconfigjson
+
+-	Paso 4
+Creamos un YAML con el cual podremos editar para poner la información de nuestro respositorio privado :
+
+Nano private-reg-pod.yaml
+
+Insertamos las siguiente información en el YAML
+apiVersion: v1
+kind: Pod
+metadata:
+  name: private-reg
+spec:
+  containers:
+  - name: private-reg-container
+    image: <your-private-image>
+  imagePullSecrets:
+  - name: regcred
+
+dónde:
+•	< your-private-image > Es el Docker push de la imagen en nuestro caso 
+umgsoii2020/node-health:tagname 
+•	regcred  es el nombre del Secret 
+•	Name Es el nombre que le damos al pod.
+De esta forma quedaron configuradas correctamente nuestras  credenciales de Docker en el clúster llamado regcred.
+
+-	Paso 5 
+Mostramos el archivo de configuración en formato YAML:
+Nano private-reg-pod.yaml
+El resultado es el siguiente:
+ 
+*El valor del .dockerconfigjson campo es una representación base64 de nuestras credenciales de Docker.
+
+-	Paso 6
+Para extraer la imagen del registro privado, Kubernetes utiliza nuestras credenciales. 
+El imagePullSecretscampo en el archivo de configuración especifica que Kubernetes contiene las credenciales de nuestro secret  llamado regcred.
+
+-	Paso 7
+Creamos un Pod (que es el registro que ya colocamos en kubernetes)  utilizando el YAML que anteriormente configuramos usa el secret y verifica que el Pod se esté ejecutando:
+kubectl apply -f my-private-reg-pod.yaml
+ 
+-	Paso 8
+Mostramos nuestros pod para verificar que se encuentre cargardo
+kubectl get pod private-reg
+
+ 
+
+
+Link del video:
+
+https://drive.google.com/file/d/1cEMj0kIDwnvabbEVarukX27NK_luGAeQ/view?usp=sharing
+
